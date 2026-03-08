@@ -409,6 +409,7 @@ var getTemplateData = function(template, index, item, renderer) {
 	 * Checks if keepIf property exists.
 	 */
 	if (("" + template).toLowerCase().indexOf("keepif=") != -1) {
+		
 		var $content = $("<data>" + template + "</data>");
 		ifTag($content);
 		template = $content.html();
@@ -418,7 +419,7 @@ var getTemplateData = function(template, index, item, renderer) {
 };
 
 /**
- * Evaluates HTML tags for silk-if css classes in the provided JQuery object. If tags found evaluates the attribute data-if criteria to keep or remove the tag.
+ * Evaluates HTML tags for keepIf property in the provided JQuery object. If tags found evaluates the attribute data-if criteria to keep or remove the tag.
  * @param {Object} $container - JQuery object to evaluate. if undefined evaluates all the html document
  */
 var ifTag = function($container) {
@@ -427,7 +428,7 @@ var ifTag = function($container) {
 	$container.find("[keepIf]").each(function(index, element) {
 		var $element = $(element);
 		var test = $element.attr("keepIf");
-
+		
 		while (test.indexOf("str(") > -1) {
 			let partStart = test.substring(0, test.indexOf("str(\'"));
 			let partMiddle = test.substring(test.indexOf("str(") + 5);
@@ -445,7 +446,7 @@ var ifTag = function($container) {
 		catch (err) {
 			result = false;
 		}
-
+		
 		if (result) {
 			$element.removeAttr("keepIf");
 		} else {

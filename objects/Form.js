@@ -14,14 +14,15 @@ The Form Class provides properties, methods, and events to interface with the co
  * @param {String} id - Unique identifier.
  * @param {Object} options - Object containing the DataProvider configuration options.
  * @param {Boolean} [options.startMode=false] - Starting mode. True is editing, and false is read-only.
- * @param {Boolean} [options.dialog=true] - Sets the dialog used. If *false*, the automatic generation of the submit button is disabled.
  * @param {String} [opsions.dataSource] - The name of the Table or DataProvider.
  * @param {String} [options.insertBt] - The name of the button used to activate an insert action.
  * @param {String} [options.updateBt] - The name of the button used to activate an update action.
  * @param {String} [options.deleteBt] - The name of the button used to activate a delete action.
  * @param {String} [options.cancelBt] - The name of the button used to activate a cancel action.
  * @param {String} [options.submitBt] - The name of the button used to activate a submit action.
+ * @param {Boolean} [options.dialog=true] - Sets the dialog used. If *false*, the automatic generation of the submit button is disabled.
  * @param {String} [options.dialogTitle] - The title of the dialog box.
+ * @param {String} [options.dialogPosition] - The position in which the dialog box will be placed at the page's header, top of bottom fo the form. By default, not provided, the dialog bar is placed in the page's header.
  * @param {String} [options.insertTitle] - The title for the insert action.
  * @param {String} [options.updateTitle] - The title for the update action.
  * @param {String} [options.deleteTitle] - The title for the delete action.
@@ -49,7 +50,6 @@ var Form = function(id, options) {
 	if (ifUndefined(options, "") == "") options = {};
 
 	var startMode = ifUndefined(options["startMode"], false);
-	var dialog = ifUndefined(options["dialog"], true);
 	var dataSource = ifUndefined(options["dataSource"], null);
 	this.insertBt = ifUndefined(options["insertBt"], null);
 	this.updateBt = ifUndefined(options["updateBt"], null);
@@ -57,7 +57,9 @@ var Form = function(id, options) {
 	this.cancelBt = ifUndefined(options["cancelBt"], null);
 	this.submitBt = ifUndefined(options["submitBt"], null);
 
+	var dialog = ifUndefined(options["dialog"], true);
 	var dialogTitle = ifUndefined(options["dialogTitle"], "");
+	var dialogPosition = ifUndefined(options["dialogPosition"], "header");
 
 	var insertTitle = ifUndefined(options["insertTitle"], "Adding");
 	var updateTitle = ifUndefined(options["updateTitle"], "Editing");
@@ -361,10 +363,10 @@ var Form = function(id, options) {
 
 
 		/**
-		 * This event is triggered before the mode changes are applied. Created with the ```Form.on("beforeModeChange", function(mode){})``` method. The mode changes between read-only (false) and editable (true);
+		 * This event is triggered before the mode changes are applied. Created with the ```Form.on("beforeModeChange", function(mode,action){})``` method. The mode changes between read-only (false) and editable (true);
 		 * @event Form#Event:beforeModeChange
 		 */
-		eventManager.dispatch("beforeModeChange", mode);
+		eventManager.dispatch("beforeModeChange", mode, _action);
 
 		if (pageID != undefined && this.mask) window[pageID].mask(mode);
 
@@ -398,10 +400,10 @@ var Form = function(id, options) {
 
 		if (this.updateBt != null) {
 			/**
-			 * This event is triggered before the update button's visibility changes. Created with the ```Form.on("showUdatetBt", function(){})``` method. If the function returns *false* the button is not displayed.
+			 * This event is triggered before the update button's visibility changes. Created with the ```Form.on("showUpdateBt", function(){})``` method. If the function returns *false* the button is not displayed.
 			 * @event Form#Event:showUdatetBt
 			 */
-			const showUdatetBt = ifUndefined(eventManager.dispatch("showUdatetBt"), true);
+			const showUdatetBt = ifUndefined(eventManager.dispatch("showUpdateBt"), true);
 			this.updateBt.toggle(!mode && showOnTree && showUdatetBt && selectedRow);
 		}
 
@@ -414,13 +416,13 @@ var Form = function(id, options) {
 			 * This event is triggered before the delete button's visibility changes. Created with the ```Form.on("showDeleteBt", function(){})``` method. If the function returns *false* the button is not displayed.
 			 * @event Form#Event:showDeleteBt
 			 */
-			const showDeleteBt = ifUndefined(eventManager.dispatch("showDeletetBt"), true);
+			const showDeleteBt = ifUndefined(eventManager.dispatch("showDeleteBt"), true);
 
 			this.deleteBt.toggle(
-				!mode &&
-					showOnTree &&
-					(deleteBranch) ? true : hasChildren == 0 &&
-					showDeleteBt &&
+				!mode && //Is in read mode
+				showOnTree && 
+				(deleteBranch) ? true : hasChildren == 0 && // If branch can be deleted
+				showDeleteBt &&
 				selectedRow
 			);
 		}
@@ -500,18 +502,18 @@ var Form = function(id, options) {
 		toggleEditManager.toggle(!mode);
 
 		/**
-		 * This event is triggered after the mode has changed. Created with the ```Form.on("afterModeChange", function(mode){})``` method. The mode changes between read-only (false) and editable (true);
+		 * This event is triggered after the mode has changed. Created with the ```Form.on("afterModeChange", function(mode,action){})``` method. The mode changes between read-only (false) and editable (true);
 		 * This event is similar to the *modeChange* event, and it is added for coding and reference convenience.
 		 * @event Form#Event:afterModeChange
 		 */
-		eventManager.dispatch("afterModeChange", mode);
+		eventManager.dispatch("afterModeChange", mode, _action);
 
 		/**
-		 * This event is triggered after the mode has changed. Created with the ```Form.on("modeChange", function(mode){})``` method. The mode changes between read-only (false) and editable (true);
+		 * This event is triggered after the mode has changed. Created with the ```Form.on("modeChange", function(mode,action){})``` method. The mode changes between read-only (false) and editable (true);
 		 * This event is similar to the *afterModeChange* event, and it is added for coding and reference convenience.
 		 * @event Form#Event:modeChange
 		 */
-		eventManager.dispatch("modeChange", mode);
+		eventManager.dispatch("modeChange", mode, _action);
 
 		/*
 		 * Sets the first visible input into focus
@@ -797,6 +799,7 @@ var Form = function(id, options) {
 		this.clean();
 		this.setAction("insert");
 		this.setMode(true);
+		
 	}
 
 	/**
@@ -826,11 +829,24 @@ var Form = function(id, options) {
 	this.doCancel = function(buttonClicked) {
 		if (!buttonClicked) buttonClicked = false;
 		if (this.getAction() == "none") return;
-		// Any action leads to close the form and return to parent list
+		
+		// Any action leads to close the form and return to parent list's page if configured.
 		// If the page is modal it closes after an insert and delete.
+		
+		// If form is under a silk page. A modal is consider a page.
 		if (pageID != undefined) {
-			if (!isModal || !buttonClicked) window[pageID].goBack();
+			//If not a modal and button has not been phisically clicked 
+			if (!isModal || !buttonClicked){
+				// If there is a dataSource
+				if( dataSource!=null ){
+					// If the dataSource is a table
+					if( dataSource.className=="table" ){
+						window[pageID].goBack();
+					}
+				}
+			}
 		}
+		
 		this.setAction("none");
 		this.setMode(false);
 		this.fillInputValues();
@@ -860,7 +876,8 @@ var Form = function(id, options) {
 		if (this.getAction() == "none" && dataSource != null) return;
 
 		/**
-		 * This event is triggered before the form's data is validated for submission. Use this event to apply changes or run operations before the form's input validation. If it returns false, the process is canceled. Created with the ```Form.on("beforeSubmit", function(){})``` method.
+		 * This event is triggered before the form's data is validated for submission. Use this event to apply changes or run operations before the form's input validation.
+		 * If it returns false, the process is canceled. Created with the ```Form.on("beforeSubmit", function(){})``` method.
 		 * @event Form#Event:beforeSubmit
 		 */
 		if (!ifUndefined(eventManager.dispatch("beforeSubmit"), true)) return;
@@ -876,7 +893,7 @@ var Form = function(id, options) {
 			 */
 
 			/**
-			 * This event is triggered before the form's data has been validated and is ready to be submitted for processing. The event *beforeSubmit* is triggered before this event.
+			 * This event is triggered after the form's data has been validated and is ready to be submitted to the DataProvider for processing. The event *beforeSubmit* is triggered before this event.
 			 * If the function returns *false* the process is canceled. Created with the ```Form.on("submit", function(){})``` method.
 			 * @event Form#Event:submit
 			 */
@@ -991,10 +1008,13 @@ var Form = function(id, options) {
 			if (pageID != undefined) {
 				$pageBar = window[pageID].$page.find(".silk-navbar");
 				var $topBar = window[pageID].$page.find(".silk-top-bar");
-
-				if ($topBar.length != 0) {
-					if ($formBar != null) $topBar.append($formBar);
+				
+				if( dialogPosition=="header" ){
+					if ($topBar.length != 0) {
+						if ($formBar != null) $topBar.append($formBar);
+					}
 				}
+				
 				$("#" + pageID + "_closeBt").prependTo($("#" + pageID + "_closeBt").parent());
 			}
 

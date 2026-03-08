@@ -24,6 +24,10 @@ var Tab = function(id, options) {
 	this.$tab;
 	this.$content;
 
+	/*
+	 * Will lauch the on click event.
+	 */	
+	var callClickTrigger = true;
 
 	/*
 	 * Setting event manager
@@ -83,8 +87,10 @@ var Tab = function(id, options) {
 	/**
 	 * Activates a tab based on the provided index
 	 * @param {Integer} index - The tab index
+	 * @param {Boolean} execClick - (Optional) If false the on click event will not be called.
 	 */
-	this.setIndex = function(index) {
+	this.setIndex = function(index, execClick) {
+		if( execClick===false ) callClickTrigger = false;
 		if (index == undefined) index = this.index;
 		tabs[index].$tab.trigger("click");
 		this.index = index;
@@ -302,7 +308,11 @@ var Tab = function(id, options) {
 			 * This event is triggered when the tab is clicked. Created with the ```Tab.on("click", function(index, tabID, clickTarget){});``` method.
 			 * @event Tab#Event:click
 			 */
-			eventManager.dispatch("click", this.index, tabID, e.target);
+			if( callClickTrigger ){
+				eventManager.dispatch("click", this.index, tabID, e.target);
+			}else{
+				callClickTrigger  = true;
+			}
 
 		}, this));
 

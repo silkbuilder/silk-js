@@ -748,6 +748,7 @@ var Input = function(id, type, label, options, initValue) {
 
 	};
 
+	var checkboxIsLogical = false;
 	/**
 	 * Changes the Input's stored value.
 	 * @param {String} value - The new value.
@@ -759,6 +760,16 @@ var Input = function(id, type, label, options, initValue) {
 
 		/* CHEKCBOX */
 		if (type == "checkbox") {
+			
+			if(value=="true"){
+				value=1;
+				checkboxIsLogical=true;
+			}
+			if(value=="false"){
+				value=0;
+				checkboxIsLogical=true;
+			} 
+			
 			value = getNumber(value);
 
 			var icon = document.createElement("span");
@@ -769,7 +780,7 @@ var Input = function(id, type, label, options, initValue) {
 				icon.setAttribute("class", "far fa-square");
 			} else {
 				$value.prop("checked", true);
-				icon.setAttribute("class", "far fa-check-square");
+				icon.setAttribute("class", "far fa-check-square fa-lg");
 			}
 			$text.html(icon);
 
@@ -870,18 +881,20 @@ var Input = function(id, type, label, options, initValue) {
 		} else if (type == "hidden") {
 			$value.val(value);
 
-			/* FILE */
+		/* Integer */
+		/*
 		} else if (type == "integer") {
 			$value.val(value);
 			if (value == "") value = "0";
 			$text.html(value);
+		*/
 
-			/* NUMERIC DECIMAL */
-		} else if (type == "numeric" || type == "decimal") {
+			/* INTEGER NUMERIC DECIMAL */
+		} else if (type == "integer" || type == "numeric" || type == "decimal") {
 			value = getNumber(value);
-
+			
 			if (value == 0) {
-				$value.val("");
+				$value.val("0");
 				$text.html($.format.number(0, mask.replace("D", "")));
 				if (mask !== "") $value.mask(mask, { reverse: true });
 			} else {
@@ -1003,9 +1016,17 @@ var Input = function(id, type, label, options, initValue) {
 
 		if (type == "checkbox") {
 			if ($value.prop("checked")) {
-				return 1;
+				if( checkboxIsLogical ){
+					return true;
+				}else{
+					return 1;
+				}
 			} else {
-				return 0;
+				if( checkboxIsLogical ){
+					return false;
+				}else{
+					return 0;
+				}
 			}
 
 		} else if (type == "select") {
@@ -1116,6 +1137,7 @@ var Input = function(id, type, label, options, initValue) {
 	this.load = function() {
 
 		var filterResult = true;
+		var oldValue = this.getValue();
 
 		$value.text("");
 
@@ -1152,8 +1174,12 @@ var Input = function(id, type, label, options, initValue) {
 					var optionElement = document.createElement("option");
 					optionElement.setAttribute("value", value);
 					optionElement.setAttribute("recordIndex", x);
+					if( oldValue==value ){
+						optionElement.setAttribute("selected","");
+					}
 					optionElement.append(label);
 					$value.append(optionElement);
+					
 				}
 			}
 
@@ -1163,6 +1189,7 @@ var Input = function(id, type, label, options, initValue) {
 			} else {
 				this.selectedIndex = getNumber(recordIndex);
 			}
+			
 
 		}
 		if (type == "options") {
@@ -1248,11 +1275,13 @@ var Input = function(id, type, label, options, initValue) {
 
 		if (form != undefined) {
 			if (form[this.columnID] != undefined) {
-				this.setValue(form[this.columnID]);
+				this.setValue(form[this.columnID].getValue());
 				this.setMode();
 			}
 		}
 
+
+		
 	}
 
 	/*
@@ -1298,6 +1327,8 @@ var Input = function(id, type, label, options, initValue) {
 				width = "185px";
 			} else if (type === "numeric") {
 				width = "100px";
+			} else if (type === "integer") {
+				width = "100px";
 			} else if (type === "decimal") {
 				width = "130px";
 			} else {
@@ -1310,10 +1341,10 @@ var Input = function(id, type, label, options, initValue) {
 			if (type === "numeric") mask = "#0";
 			if (type === "decimal") mask = "#,###,###.00D";
 		}
-
+		
 		var styleHeight = "";
 		if (type == "textarea" || type == "html" || type == "code") {
-			styleHeight = " height:" + height + ";";
+			styleHeight = " height:" + height + " !important;";
 		}
 
 		if (type == "hidden") {
@@ -1850,6 +1881,16 @@ var Input = function(id, type, label, options, initValue) {
 
 	};
 
+	/**
+	 * Clears the input value
+	 */
+	this.clear = function(){
+		let initMode = this.getMode();
+		this.setValue("")
+		this.setPreviousValue("");
+		this.setMode(initMode);
+	}
+	
 	/*
 	 * Initializes the input
 	 */

@@ -330,13 +330,17 @@ var Silk = function() {
 			return count;
 		}
 
-
 		/*
 		 * Set home button action
 		 */
 		$(".silk-home-button").on("click", function() {
-			window.location.href = contextPath;
-		})
+			var __silkSystemMenuLink = localStorage.getItem("__silkSystemMenuLink");
+			if( __silkSystemMenuLink==null ){
+				window.location.href = contextPath;	
+			}else{
+				window.location.href = __silkSystemMenuLink;
+			}
+		});
 
 		/*
 		 * Set logout button action

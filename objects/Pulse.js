@@ -9,7 +9,7 @@
  * @class
  * @classdesc The Pulse Class is only use for internal purposes.
  */
-var Pulse = function(pulseURL, logoutURL){
+var Pulse = function(pulseURL, logoutURL, idleMinutes){
 	this.initTime = new Date();
 	this.active = true;
 	this.debug = false;
@@ -20,14 +20,37 @@ var Pulse = function(pulseURL, logoutURL){
 	
 	var pulseTime = 60000; // 120000 = 2 min, 60000 = 1 min
 	var pulseInterval;
-	var allowedIdle = 15; //minutes
+	var allowedIdle = ifUndefined(idleMinutes,25); //minutes
 
+	/*
+	 *
+	 */
+	this.getIdleMinutes = function(){
+		return allowedIdle;
+	}
+	
+	/*
+	 * Change the logoutURL from the default one.
+	 */
+	this.setIdleMinutes = function(idle){
+		allowedIdle = idle;
+	}
+	
 	/*
 	 * Returns a list of the used URLs.
 	 */
 	this.getURL = function(){
 		return pulseURL+" "+logoutURL;
 	}
+	
+	/*
+	 * Change the logoutURL from the default one.
+	 */
+	this.setLogoutURL = function(url){
+		logoutURL = url;
+	}
+	
+
 	
 	/*
 	 * Resets the timer.

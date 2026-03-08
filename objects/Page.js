@@ -210,16 +210,6 @@ var Page = function(id, stage, width, screenSetup, returnPage, tabsNav) {
 
 		this.isSingle = visiblePages.length == 1;
 
-		/*
-		 * Trigger onShow event
-		 */
-
-		/**
-		 * The event is triggered when the page becomes active. Created with the ```Page.on("show", function(){})``` method.
-		 * @event Page#Event:show
-		 */
-		eventManager.dispatch("show");
-
 		this.resize();
 
 		/*
@@ -231,6 +221,16 @@ var Page = function(id, stage, width, screenSetup, returnPage, tabsNav) {
 				window[this.tabsNav].setActive(this.id);
 			}
 		}
+
+		/*
+		 * Trigger onShow event
+		 */
+
+		/**
+		 * The event is triggered when the page becomes active. Created with the ```Page.on("show", function(){})``` method.
+		 * @event Page#Event:show
+		 */
+		eventManager.dispatch("show");
 
 		/*
 		 * Call tables in page to sync header size

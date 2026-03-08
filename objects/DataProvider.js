@@ -947,9 +947,21 @@ var DataProvider = function(id, options, jsonString){
 				console.log(jqXHR);
 				console.log(textStatus);
 				console.log(errorThrown);
-				console.log(jqXHR.responseText);
+				if( jqXHR.responseText.indexOf("<!-- MAIN INDEX -->")==0 ){
+					silk.alert("Internet Session", "The internet session has been terminated.","error");
+					//Adds a meta refresh for 5 seccods.
+					var meta = document.createElement('meta');
+					meta.httpEquiv = "refresh";
+					meta.content = "5";
+					document.getElementsByTagName('head')[0].appendChild(meta);
+					
+				}else{
+					console.log(jqXHR.responseText);
+					silk.alert("Data Access Error", "Triggered by "+id,"warning");
+				}
+				
 				setLoaderStatus(3);
-				silk.alert("Data Access Error", "Triggered by "+id,"warning");
+				
 			},
 			success: function(returnObject) {
 
@@ -1445,7 +1457,7 @@ var DataProvider = function(id, options, jsonString){
 	/**
 	 * Returns an array containing the generational children of a record.
 	 * @param {pkValue} - The primary key value to evaluate.
-	 * @return {Array}
+	 * @returns {Array}
 	 */
 	this.getChildren = function(pkValue){
 		let childrenArray = [];
@@ -1463,6 +1475,13 @@ var DataProvider = function(id, options, jsonString){
 		return childrenArray;
 	}
 	
+	/**
+	 * Return the data provider data in JSON format
+	 * @returns {JSON}
+	 */
+	this.getJSON = function(){
+		return JSON.stringify( this.selectObject.data );
+	}
 	
 	/*
 	 * Notifies components of changes applied to the data

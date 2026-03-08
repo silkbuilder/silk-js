@@ -1193,11 +1193,6 @@ var Table = function(id, options) {
 		}
 
 		/*
-		 * if mouse action is click, the row is unmarked
-		 */
-		if (mouseAction == 'click') if ($selectedRow != null) $selectedRow.removeClass("table-active");
-
-		/*
 		 * load temporal selected cell and row
 		 */
 		var $tmpSelectedCell = $(event.currentTarget);
@@ -1223,6 +1218,27 @@ var Table = function(id, options) {
 			colIndex = $tmpSelectedCell.index();
 		}
 
+		
+		/**
+		 * This event is triggered before the click actions get executed. Created with the ```Table.on("beforeClick", function(colIndex, dbItem, realClick, mouseEvent){})``` method.
+		 * If the event return false, the click process is canceled.
+		 * @param {Integer} coldIndex  - The column clicked. The first one is 0.
+		 * @param {Object} dbItem - The dataProvider index of the selected row.
+		 * @param {Boolean} realClick - Returns true if the "click" has been triggered by a physical click.
+		 * @param {Object} mouseEvent - The mouse click even object.
+		 * @event Table#Event:beforeClick
+		 */
+		if( !ifUndefined( eventManager.dispatch("beforeClick", colIndex, rowItem, mouseEvent, event), true ) ){
+			event.stopPropagation();
+			return;
+		}
+		
+		/*
+		 * if mouse action is click, the row is unmarked
+		 */
+		if (mouseAction == 'click') if ($selectedRow != null) $selectedRow.removeClass("table-active");
+		
+		
 		/*
 		 * Process the mouse drag events
 		 */
@@ -1467,23 +1483,23 @@ var Table = function(id, options) {
 			if (ifUndefined(eventManager.dispatch("visualSelection", colIndex, this.selectedIndex, mouseEvent, event), false)) {
 				$selectedRow.addClass("table-active");
 			}
-
 		} else {
 			if (selectable === "always") {
 				$selectedRow.addClass("table-active");
 			} else {
-				if (window[pageID] != undefined) {
-					if (window[pageID].isSingle != undefined) {
-						if (selectable && !window[pageID].isSingle) $selectedRow.addClass("table-active");
+				if( window[pageID] ){
+					if( selectable && !ifUndefined(window[pageID].isSingle,false) ){
+						$selectedRow.addClass("table-active");
 					}
-				} else {
-					if (selectable) $selectedRow.addClass("table-active");
+				}else{
+					if(selectable) $selectedRow.addClass("table-active");
 				}
 			}
 		}
 
+
 		/**
-		 * This event is triggered when a row is clicked. Created with the ```Table.on("click", function(colIndex, dpIndex, mouseEvent){})``` method.
+		 * This event is triggered when a row is clicked. Created with the ```Table.on("click", function(colIndex, dpIndex, realClick, mouseEvent){})``` method.
 		 * @param {Integer} coldIndex  - The column clicked. The first one is 0.
 		 * @param {Integer} dbIndex - The dataProvider index of the selected row.
 		 * @param {Boolean} realClick - Returns true if the "click" has been triggered by a physical click.
@@ -1676,7 +1692,9 @@ var Table = function(id, options) {
 		 * @param {String} text - The entered text.
 		 * @event Table#Event:searchText
 		 */
-		if (eventManager.eventExists("searchText")) text = eventManager.dispatch("searchText", text);
+		if (eventManager.eventExists("searchText")){
+			text = ifUndefined(eventManager.dispatch("searchText", text),text);
+		}
 
 		if (dpSearch) {
 			//if( text.length < 3 ){
