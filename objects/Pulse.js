@@ -98,6 +98,11 @@ var Pulse = function(pulseURL, logoutURL, idleMinutes){
 		var idleMinutes = Math.round(((timeDiff % 86400000) % 3600000) / 60000);
 		
 		var mode = "beat";
+		
+		if( idleMinutes<2 ){
+			mode = "live";
+		}
+		
 		if( this.active ){
 			if( idleMinutes > allowedIdle ){
 				this.active = false;

@@ -421,6 +421,11 @@ var DataProvider = function(id, options, jsonString){
 		this.operation = "_recordSync_";
 		requestObject.cleanOperations();
 		
+		/*
+		 * If there is no records, record sync is canceled.
+		 */
+		if( this.size()==0 ) return;
+		
 		if( syncSelectName ){
 			requestObject.setOperationAction("select", syncSelectName);
 		}else{

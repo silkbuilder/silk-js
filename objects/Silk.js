@@ -63,20 +63,37 @@ var Silk = function() {
 	 * @param {String} icon - The icon's name.
 	 * @param {Object} configuration - An object with the SweetAlert2 configuration. When using this, the other parameters should not be used.
 	 */
-	this.alert = function(parameter0, parameter1, parameter2) {
-
+	this.alert = function(parameter0, parameter1, parameter2, parameter3) {
+		
 		return new Promise((resolve, reject) => {
 
 			if (typeof parameter0 === 'string' || parameter0 instanceof String) {
-				if (parameter2 == undefined) {
-					if (parameter1 == undefined) {
-						alertCore.fire(parameter0, "", "info");
-					} else {
-						alertCore.fire(parameter0, parameter1);
+				
+				let alertConf = {};
+				
+				alertConf["title"] = parameter0;
+				
+				if( parameter1 ){
+					if( parameter1.indexOf("<") ){
+						alertConf["html"] = parameter1;
+					}else{
+						alertConf["text"] = parameter1;
 					}
-				} else {
-					alertCore.fire(parameter0, parameter1, parameter2);
 				}
+				
+				if( parameter2 ){
+					alertConf["icon"] = parameter2;
+				}else{
+					alertConf["icon"] = "info";
+				}
+							
+				alertConf["animation"] = false;
+				alertConf["showCancelButton"] = false;
+				
+				alertCore.fire(alertConf).then( (result) => {
+					if( parameter3 ) parameter3(result);
+				});
+				
 			} else {
 				alertCore.fire(parameter0).then(
 					function(result) {
@@ -130,26 +147,7 @@ var Silk = function() {
 		timerProgressBar: true
 	});
 
-	/**
-	 * Distributes and visualizes the pages based on the screen's width.
-	 */
-	this.layoutScreens = function() {
-
-		for (var x in this.pageList) {
-			this.pageList[x].resize();
-			if (x == 0) {
-				window[this.focusedPage].show();
-			}
-		}
-
-		/**
-		 * This event is triggered every time the navigator is resized. It is also triggered after the pages have been distributed. Created with the ```silk.on("resize", function(){})``` method.
-		 * @event Silk#Event:resize
-		 */
-		eventManager.dispatch("resize");
-
-	}
-
+	
 	this.confirmation = function(operation, value, title, message, buttonLabel, icon) {
 
 		if (title == undefined) title = "Continue?";
@@ -177,6 +175,26 @@ var Silk = function() {
 		);
 
 	};
+	
+	/**
+	 * Distributes and visualizes the pages based on the screen's width.
+	 */
+	this.layoutScreens = function() {
+
+		for (var x in this.pageList) {
+			this.pageList[x].resize();
+			if (x == 0) {
+				window[this.focusedPage].show();
+			}
+		}
+
+		/**
+		 * This event is triggered every time the navigator is resized. It is also triggered after the pages have been distributed. Created with the ```silk.on("resize", function(){})``` method.
+		 * @event Silk#Event:resize
+		 */
+		eventManager.dispatch("resize");
+
+	}
 
 	/*
 	 * Toggle the element marked with .silk-help class.
@@ -334,9 +352,21 @@ var Silk = function() {
 		 * Set home button action
 		 */
 		$(".silk-home-button").on("click", function() {
+			
+			/*
+			 * Check if running the developer IDE
+			 */
+			if( window.location.href.indexOf("SilkBuilderIDE") > -1  ){
+				window.location.href = contextPath;
+				return;
+			}
+			
+			/*
+			 * Loads the menuLink from local storage
+			 */
 			var __silkSystemMenuLink = localStorage.getItem("__silkSystemMenuLink");
 			if( __silkSystemMenuLink==null ){
-				window.location.href = contextPath;	
+				window.location.href = contextPath;
 			}else{
 				window.location.href = __silkSystemMenuLink;
 			}

@@ -502,9 +502,10 @@ var Input = function(id, type, label, options, initValue) {
 
 			} else {
 				$text.hide();
-				$value.show();
+				//$value.show();
+				$value.css('display', 'inline-block');
 			}
-
+			
 			if (type == "html") {
 				if (!CKEDITOR.instances[this.getInputID()]) {
 					if (htmlConfigFile != "") {
@@ -1736,11 +1737,24 @@ var Input = function(id, type, label, options, initValue) {
 	 */
 	var handleFiles = function(files, _this) {
 
-		if (uploadURL == "") return;
-
 		let file = files[0];
 		let fileName = file.name;
 		let fileSize = file.size;
+		
+		/**
+		 * This event is triggered after the file extension and size has been validated. Created with the ```Input.on("fileValidate", function(Input, typeError, sizeError){})``` method.
+		 * @param {Object} Input - Reference to the Input.
+		 * @param {Boolean} typeError - True if the file extension type is not a match.
+		 * @param {Boolean} sizeError - True if the size is beyond set bounderies.
+		 * @param {Object} file - The file element to be uploaded
+		 * @event Input#Event:fileLoaded
+		 */
+		eventManager.dispatch("fileLoad", _this, file);
+		
+		/*
+		 * If the upload URL is not provided the handle process is canceled.
+		 */
+		if (uploadURL == "") return;
 
 		/**
 		 * Verifies the allowed extensions.
@@ -1769,20 +1783,21 @@ var Input = function(id, type, label, options, initValue) {
 			_this.markValidationError();
 
 			/**
-			 * This event is triggered after the file extension and size has been validated. Created with the ```Input.on("fileValidate", function(Input, typeError, sizeError){})``` method.
+			 * This event is triggered after the file extension and size has been validated and errors had been found. Created with the ```Input.on("fileValidate", function(Input, typeError, sizeError){})``` method.
 			 * @param {Object} Input - Reference to the Input.
 			 * @param {Boolean} typeError - True if the file extension type is not a match.
 			 * @param {Boolean} sizeError - True if the size is beyond set bounderies.
+			 * @param {Object} file - The file element to be uploaded
 			 * @event Input#Event:fileValidate
 			 */
-			eventManager.dispatch("fileValidate", _this, typeError, sizeError);
+			eventManager.dispatch("fileValidate", _this, typeError, sizeError, file);
 
 			return;
 		}
 
 
 		/**
-		 * Instantiet the FormData Object
+		 * Instantiating the FormData Object
 		 */
 		let formData = new FormData();
 
@@ -1798,11 +1813,13 @@ var Input = function(id, type, label, options, initValue) {
 		 * @param {Object} formData - The form used to upload the file.
 		 * @param {String} fileName - The name of the file to be uploaded.
 		 * @param {Integer} fileSize - The file's size.
+		 * @param {Object} file - The file element to be uploaded
 		 * @event Input#Event:beforeUpload
 		 */
-		if (!ifUndefined(eventManager.dispatch("beforeUpload", _this, formData, fileName, fileSize), true)) {
-			if (result == undefined) result = true;
-			if (result == false) return;
+		if (!ifUndefined(eventManager.dispatch("beforeUpload", _this, formData, fileName, fileSize, file), true)) {
+			//if (result == undefined) result = true;
+			//if (result == false)
+			return;
 		}
 
 		$drop.hide();
