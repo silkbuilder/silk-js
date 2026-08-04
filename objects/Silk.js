@@ -108,6 +108,9 @@ var Silk = function() {
 
 	var alertCore = Swal.mixin({
 		customClass: {
+			popup: 'custom-swal-popup',
+		    title: 'custom-swal-title',
+		    htmlContainer: 'custom-swal-text',
 			confirmButton: 'btn btn-success',
 			cancelButton: 'btn btn-danger'
 		},

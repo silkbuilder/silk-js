@@ -274,7 +274,7 @@ var Button = function(buttonID, options){
 	this.initButton = function(){
 		
 		this.$button = $('#'+buttonID);
-		
+
 		/*
 		 * Assigned click function to button
 		 */

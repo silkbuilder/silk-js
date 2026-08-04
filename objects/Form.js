@@ -532,7 +532,7 @@ var Form = function(id, options) {
 				setTimeout(function() {
 					//console.log(firstInput);
 					firstInput.focus();
-				}, 500);
+				}, 200);
 			}
 		}
 
@@ -560,7 +560,7 @@ var Form = function(id, options) {
 	/*
 	 * List of input types which are editable
 	 */
-	var submitTypeList = "text,textarea,code,html,sql,xml,js,xhtml,date,time,datetime,select,numeric,integer,decimal,checkbox,button,options,radio,password,file,email";
+	var submitTypeList = "text,textarea,code,html,sql,xml,js,xhtml,date,time,datetime,select,numeric,integer,decimal,checkbox,button,options,radio,password,file,email,external";
 
 	/*
 	 * Function to run to decide if the submit button should be active.
@@ -844,13 +844,15 @@ var Form = function(id, options) {
 						window[pageID].goBack();
 					}
 				}
+			}else{
+				window[pageID].hide();
 			}
 		}
 		
 		this.setAction("none");
-		this.setMode(false);
 		this.fillInputValues();
-		this.setInputMode(false);
+		this.setMode(false);
+		//this.setInputMode(false);
 
 	}
 

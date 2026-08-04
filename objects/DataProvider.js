@@ -642,11 +642,18 @@ var DataProvider = function(id, options, jsonString){
 	 */
 	this.load = function(internalCall){
 		
+		/*
+		 * Prevents multiple calls
+		 */
+		if( this.isLoading ) return;
+		
 		this.isLoading = true;
+		
 		if( debugLevel>0 ){
 			loadingStart = new Date();
 			console.log( id+": Start Loading " );
 		}
+		
 		if( this.operation != "_recordSync_" ) setLoaderStatus(1);
 
 		if( internalCall==undefined ) internalCall=false;
@@ -678,6 +685,7 @@ var DataProvider = function(id, options, jsonString){
 			
 			eventManager.dispatch("afterSelect");
 
+			this.isLoading = false;
 			setLoaderStatus(2);
 			return;
 		}
@@ -691,6 +699,7 @@ var DataProvider = function(id, options, jsonString){
 			item[this.getPkColumn()] = requestObject.getOperationColumnItemValue(this.getPkColumn());
 			returnObject.data.push(item);
 			this.loadCallback(returnObject);
+			this.isLoading = false;
 			return;
 		}
 
@@ -701,7 +710,10 @@ var DataProvider = function(id, options, jsonString){
 		 * @param {String} operation - The operation to be executed.
 		 * @event DataProvider#Event:beforeLoad
 		 */
-		if( !ifUndefined(eventManager.dispatch("beforeLoad",this.action,this.operation),true) ) return;
+		if( !ifUndefined(eventManager.dispatch("beforeLoad",this.action,this.operation),true) ){
+			this.isLoading = false;
+			return;
+		}
 
 
 		if( this.action=="select" ){
@@ -728,8 +740,9 @@ var DataProvider = function(id, options, jsonString){
 				 * @event DataProvider#Event:beforeRecordSync
 				 */
 				if( !ifUndefined(eventManager.dispatch("beforeRecordSync", this.operation),true) ){
+					this.isLoading = false;
 					return;	
-				} 
+				}
 
 			}else{
 
@@ -742,7 +755,10 @@ var DataProvider = function(id, options, jsonString){
 				 * @param {String} selectName - The name of the select to be called.
 				 * @event DataProvider#Event:beforeSelect
 				 */
-				if( !ifUndefined(eventManager.dispatch("beforeSelect",this.operation),true) ) return;
+				if( !ifUndefined(eventManager.dispatch("beforeSelect",this.operation),true) ){
+					this.isLoading = false;
+					return;	
+				}
 
 			}
 
@@ -759,7 +775,10 @@ var DataProvider = function(id, options, jsonString){
 			 * This event is triggered before the insert action is executed. If the event function returns *false* the process is canceled. Created with the ```DataProvider.on("beforeInsert", function(){})``` method.
 			 * @event DataProvider#Event:beforeInsert
 			 */
-			if( !ifUndefined(eventManager.dispatch("beforeInsert"),true) ) return;
+			if( !ifUndefined(eventManager.dispatch("beforeInsert"),true) ){
+				this.isLoading = false;
+				return;	
+			}
 			 
 		};
 
@@ -773,7 +792,10 @@ var DataProvider = function(id, options, jsonString){
 			 * This event is triggered before the update action is executed. If the event function returns *false* the process is canceled. Created with the ```DataProvider.on("beforeUpdate", function(){})``` method.
 			 * @event DataProvider#Event:beforeUpdate
 			 */
-			if( !ifUndefined(eventManager.dispatch("beforeUpdate"),true) ) return;
+			if( !ifUndefined(eventManager.dispatch("beforeUpdate"),true) ){
+				this.isLoading = false;
+				return;	
+			}
 
 		};
 
@@ -787,7 +809,10 @@ var DataProvider = function(id, options, jsonString){
 			 * This event id triggered before the delete action is executed. If the event function returns *false* the process is canceled. Created with the ```DataProvider.on("beforeDelete", function(){})``` method.
 			 * @event DataProvider#Event:beforeDelete
 			 */
-			if( !ifUndefined(eventManager.dispatch("beforeDelete"),true) ) return;
+			if( !ifUndefined(eventManager.dispatch("beforeDelete"),true) ){
+				this.isLoading = false;
+				return;	
+			}
 
 		};
 
@@ -801,7 +826,10 @@ var DataProvider = function(id, options, jsonString){
 			 * This event is triggered before the batch action is executed. If the event function returns *false* the process is canceled. Created with the ```DataProvider.on("beforeBatch", function(){})``` method.
 			 * @event DataProvider#Event:beforeBatch
 			 */
-			if( !ifUndefined(eventManager.dispatch("beforeBatch"),true) ) return;
+			if( !ifUndefined(eventManager.dispatch("beforeBatch"),true) ){
+				this.isLoading = false;
+				return;	
+			}
 			
 		};
 
@@ -816,7 +844,10 @@ var DataProvider = function(id, options, jsonString){
 			 * @param {String} operation - The operation to be executed.
 			 * @event DataProvider#Event:beforeExec
 			 */
-			if( !ifUndefined(eventManager.dispatch("beforeExec", this.operation),true) ) return;
+			if( !ifUndefined(eventManager.dispatch("beforeExec", this.operation),true) ){
+				this.isLoading = false;
+				return;	
+			}
 
 		};
 
@@ -945,6 +976,9 @@ var DataProvider = function(id, options, jsonString){
 			},
 			dataType: "json",
 			error: function(jqXHR, textStatus, errorThrown){
+				
+				this.isLoading = false;
+				
 				console.log("DataProvider: "+id);
 				console.log("Service: "+fullServicePath);
 				console.log("jsonString: "+jsonString);
@@ -970,6 +1004,8 @@ var DataProvider = function(id, options, jsonString){
 			},
 			success: function(returnObject) {
 
+				this.isLoading = false;
+				
 				if( debugLevel>0 ) console.log( id+": Server responded" );
 
 				if( debugLevel>1 ){
@@ -986,8 +1022,7 @@ var DataProvider = function(id, options, jsonString){
 				}else{
 					this.loadCallback(returnObject);
 				}
-
-				this.isLoading = false;
+				
 				if( debugLevel>0 ){
 					loadingEnd = new Date();
 					var diffTime = Math.abs( loadingEnd.getTime() - loadingStart.getTime() );
@@ -1158,6 +1193,7 @@ var DataProvider = function(id, options, jsonString){
 			/*
 			 * Process the result of a UPDATE request
 			 */
+			
 			this.operationObject = returnObject;
 			for( x in requestObject.operationList[0].columnList ){
 				
@@ -1167,6 +1203,7 @@ var DataProvider = function(id, options, jsonString){
 				if( this.selectObject.data.length > 0 ){
 					this.selectObject.data[operationIndex][column] = value;
 				}
+				
 			}
 
 			/*
@@ -1553,7 +1590,10 @@ var DataProvider = function(id, options, jsonString){
 	 * Load data from a JSON string into the *selectObject"'s data.
 	 * @param {String} json - The JSON structure to be parsed.
 	 */
-	this.loadJSON = function(json){
+	this.loadJSON = function(json, silent=false){
+		if( json==undefined ) json="[]";
+		if( json=="" ) json="[]";
+		
 		this.selectObject.data = JSON.parse(json);
 
 		/*
@@ -1568,15 +1608,19 @@ var DataProvider = function(id, options, jsonString){
 			operationIndex = 0;
 			this.selectedIndex = 0;
 		}
+		if( !silent ) notifyComponents();
+
 	}
 
 	/*
 	 * Loading JSON string if provided
 	 */
 	if( jsonString != undefined  ){
-		this.loadJSON(jsonString);
+		
+		this.loadJSON(jsonString, true);
 	}
-	
+
 	this.cleanOperations(true);
+	
 
 }; // End Data Provider

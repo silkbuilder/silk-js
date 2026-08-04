@@ -11,7 +11,7 @@
  *
  * @constructor
  * @param {String} id - Unique identifier.
- * @param {String} type - The input type: text, textarea, code, sql, js, css, xml, xhtml, html, date, time, datetime, select, numeric, integer, decimal, checkbox, button, options, radio, password, file, email, hidden.
+ * @param {String} type - The input type: text, textarea, code, sql, js, css, xml, xhtml, html, date, time, datetime, select, numeric, integer, decimal, checkbox, button, options, radio, password, file, email, hidden, external.
  * @param {String} label - The text used as the input's label.
  * @param {Object} options - Object containing the Input configuration options.
  * @param {String} initValue - The value that the Input will hold when created.
@@ -43,7 +43,7 @@
  * @param {String} [options.template] - A HTML schema defining the component read view.
  * @param {String} [options.target] - The HTML element in which the component will be rendered.
  * @param {String} [options.extraProperties] - To add extra HTML properties to the input.
- * @param {String} [options.htmlConfigFile=/ckeditor-conf/bar-simple.js] - The JavaScript file containing the custom configuration for CKEditor. To be used with type "html".
+ * @param {String} [options.htmlToolbar] - The Quill menu array. To be used with type "html".
  * @param {String} [options.stringList] - A JSON array which will serve as dataProvider for select, options, and radio. This array should contain objects with the properties' value and label.
  * @param {String} [options.prompt] - The provided text will be added as an extra option to the select usually used to request a value selection.
  * @param {String} [options.promptValue] - The value returned by the select "prompt" if the user selects it.
@@ -61,6 +61,7 @@
  * @param {Integer} [options.fileSizeLimit] - The number of MB allowed to upload. To use with a input type file.
  * @param {Integer} [options.timer=0] - The number of milliseconds before triggering the "timer" event when entering data.
  * @param {String} [option.toggleList] - The list of comma-separated elements that will be toggled together with the component.
+ * @param {String} [option.autocomplete] - Determines if the input should accept autocomlete. True by default.
  *
  * @property {String} columnID - The input's unique identifier. This would be the name of the dataProvider column if part of a Form tag.
  * @property {Object} $input - The JQuery reference to the SILK Input HTML structure.
@@ -86,7 +87,7 @@ var Input = function(id, type, label, options, initValue) {
 	var visible = ifUndefined(options["visible"], "");
 	var hideEmpty = ifUndefined(options["hideEmpty"], false);
 	var maxLength = ifUndefined(options["maxLength"], "");
-	var name = ifUndefined(options["name"], "");
+	var name = ifUndefined(options["name"], this.columnID); // Gets the columnID value if not provided
 	var scriptValue = ifUndefined(options["scriptValue"], "");
 	var scope = ifUndefined(options["scope"], 1);
 	var mask = ifUndefined(options["mask"], "");
@@ -103,7 +104,8 @@ var Input = function(id, type, label, options, initValue) {
 	var template = ifUndefined(options["template"], "");
 	var target = ifUndefined(options["target"], "");
 	var extraProperties = ifUndefined(options["extraProperties"], "");
-	var htmlConfigFile = ifUndefined(options["htmlConfigFile"], "/ckeditor-conf/bar-simple.js");
+	var htmlToolbar = ifUndefined(options["htmlToolbar"], "simple");
+	var htmlTheme = ifUndefined(options["htmlTheme"], "snow");
 	var stringList = ifUndefined(options["stringList"], "");
 
 	var prompt = ifUndefined(options["prompt"], "");
@@ -136,8 +138,58 @@ var Input = function(id, type, label, options, initValue) {
 	var inputTimer = null;
 
 	var toggleList = ifUndefined(options["toggleList"], "");
+	
+	var autocomplete = ifUndefined(options["autocomplete"], true);
 
+	/*
+	 * Quill object when using HTML
+	 */
+	this.quillObject = null;
+	
+	/*
+	 * Set HTML editor toolbar
+	 */
+	if( type=="html" ){
+		if( htmlToolbar=="none" ){
+			htmlToolbar=[];
+		}
+		
+		if( htmlToolbar=="simple" ){
+			htmlToolbar = [
+				['bold', 'italic', { 'align': [] }, { 'list': 'ordered'}, { 'list': 'bullet' }]
+			];
+		}
+		
+		if( htmlToolbar=="regular" ) {
+			htmlToolbar = [
+				['bold', 'italic'],
+				[{ 'align': [] }],
+				['link', 'image'],
+				[{ 'list': 'ordered'}, { 'list': 'bullet' }],
+				[{ 'color': [] }],
+				['table-better'],
+				['clean'],
+				['fullscreen']
+			];
+		}
 
+		if( htmlToolbar=="full" ){
+			htmlToolbar = [
+				['bold', 'italic', 'underline', 'strike'],
+				[{ 'align': [] }],
+				[{ 'header': [1, 2, 3, 4, 5, 6, false] }, 'code-block'],
+				['link', 'image'],			
+				[{ 'list': 'ordered'}, { 'list': 'bullet' }],
+				[{ 'script': 'sub'}, { 'script': 'super' }],
+				[{ 'indent': '-1'}, { 'indent': '+1' }],			
+				[{ 'color': [] }, { 'background': [] }],			
+				['table-better'],			
+				['clean'],
+				['fullscreen']
+			];
+		}
+	}
+	
 	/**
 	 * Returns the component's unique identifier.
 	 */
@@ -447,7 +499,7 @@ var Input = function(id, type, label, options, initValue) {
 
 		viewMode = evalMode(viewMode);
 
-		if (type == "hidden") return;
+		if (type == "hidden" || type == "external") return;
 
 		//this.setVisible();
 
@@ -507,24 +559,16 @@ var Input = function(id, type, label, options, initValue) {
 			}
 			
 			if (type == "html") {
-				if (!CKEDITOR.instances[this.getInputID()]) {
-					if (htmlConfigFile != "") {
-						CKEDITOR.replace(this.getInputID(), {
-							customConfig: window['contextPath'] + htmlConfigFile + "?unique" + (new Date()).getTime(),
-							height: replaceAll(height, "px", "")
-						});
-					} else {
-						CKEDITOR.replace(this.getInputID());
-					}
-					CKEDITOR.instances[this.getInputID()].on("change", $.proxy(function(e) {
-						eventManager.dispatch("keyup", e, this);
-					}, this));
+				
+				if( this.quillObject==null ){
+					this.quillObject = new QuillEditor(this.$dataField, this.getValue(), htmlToolbar, htmlTheme);
 				}
-				// Added to hide when refreshing
-				this.$input.find(".silk-input-value").hide();
+				
+				this.$dataField.show();
+				
 			}
 
-		} else {
+		} else { // - - - - - - - - - - - - - - //
 			/*
 			 * Change to read-only
 			 */
@@ -540,15 +584,13 @@ var Input = function(id, type, label, options, initValue) {
 			}
 
 			if (type == "html") {
-				if (CKEDITOR.instances[this.getInputID()]) {
-					CKEDITOR.instances[this.getInputID()].updateElement();//function call fails here
-					try {
-						CKEDITOR.instances[this.getInputID()].destroy();
-					} catch (err) {
-						delete CKEDITOR.instances[this.getInputID()];
-					}
-					$('#cke_' + this.getInputID()).remove();
+				
+				if( this.quillObject!=null ){
+					this.quillObject = this.quillObject.kill();
 				}
+				
+				this.$dataField.hide();
+				
 			}
 
 			if (type == "file") {
@@ -878,18 +920,6 @@ var Input = function(id, type, label, options, initValue) {
 				$text.html(renderTemplate($value.val()));
 			}
 
-			/* HIDDEN */
-		} else if (type == "hidden") {
-			$value.val(value);
-
-		/* Integer */
-		/*
-		} else if (type == "integer") {
-			$value.val(value);
-			if (value == "") value = "0";
-			$text.html(value);
-		*/
-
 			/* INTEGER NUMERIC DECIMAL */
 		} else if (type == "integer" || type == "numeric" || type == "decimal") {
 			value = getNumber(value);
@@ -911,13 +941,14 @@ var Input = function(id, type, label, options, initValue) {
 
 			/* HTML */
 		} else if (type == "html") {
-			if (CKEDITOR.instances[this.getInputID()]) {
-				CKEDITOR.instances[this.getInputID()].setData(value);
-			} else {
+			if (this.quillObject==null) {
 				$value.val(value);
-				if (value == "") value = "&nbsp;";
-				$text.html(value);
+			} else {
+				this.quillObject.setHtml(value);
 			}
+			if (value == "") value = "&nbsp;";
+			$text.html(value);
+
 
 			/* code Editors */
 		} else if (isIn(type, "sql", "js", "css", "xml", "xhtml")) {
@@ -929,7 +960,11 @@ var Input = function(id, type, label, options, initValue) {
 			$value.val(value);
 			if (value == "") value = "&nbsp;";
 			$text.html(value);
-
+			
+			/* HIDDEN or EXTERNAL */
+		} else if (type == "hidden" || type == "external") {
+			$value.val(value);
+				
 			/* TEXT - OTHERS */
 		} else {
 			if (value == "") {
@@ -1058,10 +1093,10 @@ var Input = function(id, type, label, options, initValue) {
 			return getNumber($value.val());
 
 		} else if (type == "html") {
-			if (CKEDITOR.instances[this.getInputID()]) {
-				return CKEDITOR.instances[this.getInputID()].getData();
+			if (this.quillObject==null) {
+				return $text.html().replace("&nbsp;","");
 			} else {
-				return $value.val();
+				return this.quillObject.getHtml();				
 			}
 
 		} else if (isIn(type, "sql", "js", "css", "xml", "xhtml")) {
@@ -1165,7 +1200,7 @@ var Input = function(id, type, label, options, initValue) {
 				 * Created with the ```Input.on("filterLoad", function(index,item){})``` method.
 				 * @event Input#Event:filterLoad
 				 */
-				filterResult = eventManager.dispatch("filterLoad", item);
+				filterResult = eventManager.dispatch("filterLoad", x, item);
 
 				if (filterResult == undefined) filterResult = true;
 				if (filterResult) {
@@ -1280,8 +1315,6 @@ var Input = function(id, type, label, options, initValue) {
 				this.setMode();
 			}
 		}
-
-
 		
 	}
 
@@ -1295,8 +1328,11 @@ var Input = function(id, type, label, options, initValue) {
 		 */
 		var input = null;
 
-		if (type == "textarea" || type == "html" || type == "code") {
+		if (type == "textarea" || type == "code") {
 			input = document.createElement("textarea");
+
+		} else if (type == "html") {
+			input = document.createElement("div");
 
 		} else if (type == "select") {
 			input = document.createElement("select");
@@ -1344,11 +1380,15 @@ var Input = function(id, type, label, options, initValue) {
 		}
 		
 		var styleHeight = "";
-		if (type == "textarea" || type == "html" || type == "code") {
+		if (type == "textarea" || type == "code") {
 			styleHeight = " height:" + height + " !important;";
 		}
 
-		if (type == "hidden") {
+		if (type == "html") {
+			styleHeight = "height:"+height+" !important;";
+		}
+		
+		if (type == "hidden" || type == "external") {
 			input.setAttribute("id", id);
 			input.setAttribute("type", "hidden");
 			if (inputValue != "") input.setAttribute("value", inputValue);
@@ -1439,7 +1479,7 @@ var Input = function(id, type, label, options, initValue) {
 		 * Generate Label and Text view
 		 */
 		var labelContainer;
-		if (type == "file") {
+		if (type == "file" || type == "html" ) {
 			labelContainer = document.createElement("div");
 		} else {
 			labelContainer = document.createElement("label");
@@ -1455,7 +1495,7 @@ var Input = function(id, type, label, options, initValue) {
 
 		labelContainer.setAttribute("class", "silk-input " + inputClass + " silk-input-box-" + type);
 
-		if (type != "hidden" && description != "" && descriptionPlace == "top") {
+		if (type != "hidden" &&  type != "external" && description != "" && descriptionPlace == "top") {
 			var descriptionBox = document.createElement("div");
 			descriptionBox.setAttribute("class", "silk-input-description");
 			//labelContainer.append(descriptionBox);
@@ -1594,7 +1634,7 @@ var Input = function(id, type, label, options, initValue) {
 
 		}
 
-		if (type != "hidden" && description != "" && descriptionPlace == "bottom") {
+		if (type != "hidden" && type != "external" && description != "" && descriptionPlace == "bottom") {
 			var descriptionBox = document.createElement("div");
 			descriptionBox.setAttribute("class", "silk-input-description");
 			labelContainer.append(descriptionBox);
@@ -1611,6 +1651,13 @@ var Input = function(id, type, label, options, initValue) {
 		if (maxLength != "") input.setAttribute("maxLength", maxLength);
 		if (name != "") input.setAttribute("name", name);
 
+		if( autocomplete ){
+			input.setAttribute('data-1p-ignore', '');
+			input.setAttribute('data-lpignore', 'true');
+			input.setAttribute('autocomplete', 'off');
+			input.setAttribute('data-bwignore', '');
+		}
+		
 		if (extraProperties != "") {
 			var extraList = extraProperties.trim();
 			extraList = replaceAll(extraList, "  ", " ").split(" ");
@@ -1933,7 +1980,7 @@ var Input = function(id, type, label, options, initValue) {
 		if (type != "hidden" && label != "") $label.html(label.replaceAll("</p>", "<br/></p>").replace(/<[\/]{0,1}(p)[^><]*>/ig, ""));
 		if (type != "hidden" && description != "") $description.html(description);
 
-		if (type == "hidden") $value = this.$input;
+		if (type == "hidden" || type == "external") $value = this.$input;
 		if (type == "numeric" || type == "integer" || type == "decimal") $value.css("text-align", "right");
 		if (type == "html") $text.addClass("silk-input-text-html");
 
@@ -1948,7 +1995,7 @@ var Input = function(id, type, label, options, initValue) {
 		/*
 		 * set input name property
 		 */
-		$value.attr("name", id);
+		//$value.attr("name", id);
 
 		/*
 		 * Set keyup in the input
@@ -2204,7 +2251,7 @@ var Input = function(id, type, label, options, initValue) {
 				}, this));
 			}
 
-		};
+		}; // End type file
 
 		/*
 		 * Bind change even to input

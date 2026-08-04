@@ -24,7 +24,7 @@ var ToggleManager = function(toggleList, id) {
 		if (toggleList.trim() == "") return;
 		for (var x in toggleArray) {
 			var item = toggleArray[x].trim();
-
+			
 			/*
 			 * Set the visible condition 
 			 */

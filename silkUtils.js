@@ -690,6 +690,63 @@ $.fn.getCSSValue = function(attribute) {
 		.css(attribute);
 };
 
+/**
+ * Removes one or more trailing "empty" <p> paragraphs from the end of an
+ * HTML string.
+ *
+ * A paragraph is considered empty if it contains nothing but whitespace,
+ * a non-breaking space (&nbsp;), and/or a single <br> — which covers the
+ * common leftover empty paragraphs that rich-text editors like Quill tend
+ * to append after the last real line of content.
+ *
+ * The removal repeats until no more trailing empty paragraphs are found,
+ * so multiple stacked empty paragraphs at the end of the string are all
+ * stripped, not just the last one.
+ *
+ * Implementation note: this is a lightweight regex-based cleanup, not a
+ * full HTML parse — it assumes reasonably well-formed markup and only
+ * looks at the tail of the string. It won't catch empty paragraphs that
+ * contain nested empty elements (e.g. <p><span></span></p>) or malformed
+ * HTML. For those cases, parse via DOMParser and walk body.lastElementChild
+ * instead.
+ *
+ * @param {string} html - The HTML string to clean up.
+ * @returns {string} The input string with trailing empty <p> tags removed.
+ *   Returns the input unchanged (as-is) if it isn't a string.
+ *
+ * @example
+ * removeTrailingEmptyParagraphs('<p>Hello</p><p></p>');
+ * // => "<p>Hello</p>"
+ *
+ * @example
+ * removeTrailingEmptyParagraphs('<p>Hello</p><p><br></p>');
+ * // => "<p>Hello</p>"
+ *
+ * @example
+ * removeTrailingEmptyParagraphs('<p>Hello</p><p>&nbsp;</p><p></p>');
+ * // => "<p>Hello</p>"
+ *
+ * @example
+ * removeTrailingEmptyParagraphs('<p></p>');
+ * // => ""
+ */
+function removeTrailingEmptyParagraphs(html) {
+	if (typeof html !== 'string') return html;
+
+	// Matches a trailing <p> (optionally with attributes) whose only content
+	// is whitespace, &nbsp;, and/or a <br>, anchored to the end of the string.
+	const emptyTrailingP = /<p(?:\s+[^>]*)?>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>\s*$/i;
+
+	let result = html;
+	// Loop rather than a single replace: handles multiple stacked empty
+	// paragraphs at the tail (e.g. "...<p></p><p><br></p>").
+	while (emptyTrailingP.test(result)) {
+		result = result.replace(emptyTrailingP, '');
+	}
+	return result;
+}
+
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 /*

@@ -199,6 +199,7 @@ var Table = function(id, options) {
 	this.clearSearchText = function() {
 		this.$tableSearchInput.val("");
 		this.$tableSearchInput.trigger("keyup");
+		$emptyBox.toggle(false);
 	}
 
 	/**
@@ -436,6 +437,8 @@ var Table = function(id, options) {
 			this.action = action;
 		}
 
+		$emptyBox.toggle(false);
+		
 		/**
 		 * This event is triggered before the table content is loaded. Created with the ```Table.on("beforeLoad", function(){})``` method.
 		 * @event Table#Event:beforeLoad

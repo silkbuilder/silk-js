@@ -9,11 +9,13 @@
  * @class
  * @classdesc The Pulse Class is only use for internal purposes.
  */
-var Pulse = function(pulseURL, logoutURL, idleMinutes){
+var Pulse = function(pulseURL, logoutURL, idleMinutes, isPrivate){
 	this.initTime = new Date();
 	this.active = true;
 	this.debug = false;
 
+	if( isPrivate==undefined ) isPrivate = true;
+	
 	var dialogOpen = false;
 	var pageTitle = document.title;
 	var blink = 0;
@@ -106,16 +108,35 @@ var Pulse = function(pulseURL, logoutURL, idleMinutes){
 		if( this.active ){
 			if( idleMinutes > allowedIdle ){
 				this.active = false;
-				this.openDialog();
+				if( isPrivate ){
+					/*
+					 * If the page is under a signed in session opens the dialog.
+					 */
+					this.openDialog();
+				}else{
+					/*
+					 * If the page is public it get reloaded.
+					 */
+					window.location.reload(true);
+					return;
+				}
 			}else{
 				if( this.debug ) console.log("idle:"+idleMinutes+" min.");
-				if( idleMinutes<1 ){
-					document.title = pageTitle;
-				}else{
-					document.title = "⏰"+idleMinutes+"m. "+pageTitle;
+				if( isPrivate ){
+					if( idleMinutes<1 ){
+						document.title = pageTitle;
+					}else{
+						document.title = "⏰"+idleMinutes+"m. "+pageTitle;
+					}
 				}
 			}
 		}
+		
+		/*
+		 * If the page is public it does not continue. It does not need to call pulse.jsp.
+		 */
+		if( !isPrivate ) return;
+		//console.log(isPrivate);
 		
 		/*
 		 * If dialog is open after 2.5 m in it closes the page.

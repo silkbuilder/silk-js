@@ -83,8 +83,9 @@ var generateCreateTableSQL = function(tableObject, columnArray, targetDB) {
 
 	}
 
+	createSQL = createSQL.replaceAll("\{dbTable\}", tableObject.tableName);
 	createSQL = replaceAll(createSQL, " ,", ",");
-
+	
 	return createSQL.trim();
 
 };
@@ -493,4 +494,160 @@ ormXMLtoObject = function() {
 	ormObject["authorization"] = authorizationList;
 
 };
+
+function javaIn(content){
+	content = replaceAll(content, atob("PCU="), atob("PGphdmE+"));
+	content = replaceAll(content, atob("JT4="), atob("PC9qYXZhPg=="));
+	return content;
+}
+
+function javaOut(content){
+	content = replaceAll(content, atob("PGphdmE+"), atob("PCU="));
+	content = replaceAll(content, atob("PC9qYXZhPg==") , atob("JT4="));
+	return content;
+}
+
+
+
+/**
+ * showDiff(code1, code2)
+ * Renders a side-by-side / line-by-line diff of two code strings
+ * inside the element with id="diffBox" using Diff2HtmlUI.
+ *
+ * Dependencies (add to your HTML before this script):
+ *   <link  rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/diff2html/3.4.48/bundles/css/diff2html.min.css">
+ *   <script src="https://cdnjs.cloudflare.com/ajax/libs/diff2html/3.4.48/bundles/js/diff2html-ui.min.js"></script>
+ */
+function silkShowDiff(code1, code2, type, full) {
+	
+	let outputFormat = "side-by-side";
+	if( type==1 ) outputFormat = "line-by-line";
+	
+	if( full==undefined ) full=false;
+	
+  // ── 1. Build a unified-diff string from the two code snippets ──────────────
+
+  const lines1 = code1.split("\n");
+  const lines2 = code2.split("\n");
+
+  // Produce a minimal unified-diff header + hunks via the built-in Diff helper
+  // that ships with diff2html-ui (it re-exports the `diff` npm package).
+  // If that isn't available we build the unified diff manually so the function
+  // works in every environment.
+  let unifiedDiff;
+
+  if (window.Diff2HtmlUI && window.Diff) {
+    // diff library is bundled with diff2html-ui
+    unifiedDiff = window.Diff.createPatch("code", code1, code2, "", "");
+  } else {
+    unifiedDiff = buildUnifiedDiff(lines1, lines2, full);
+  }
+
+  // ── 2. Render with Diff2HtmlUI ─────────────────────────────────────────────
+
+  const targetEl = document.getElementById("diffBox");
+  if (!targetEl) {
+    console.error('showDiff: no element found with id="diffBox"');
+    return;
+  }
+
+  const diff2htmlUi = new Diff2HtmlUI(targetEl, unifiedDiff, {
+    drawFileList:    false,   // hide the file-list summary bar
+    matching:        "lines", // highlight matching tokens within changed lines
+    outputFormat:    outputFormat, // "side-by-side" "line-by-line" is the other option
+    synchronisedScroll: true,
+	fileContentToggle:  false,
+	colorScheme: 'dark',
+	renderNothingWhenEmpty: false
+  });
+
+  diff2htmlUi.draw();
+  diff2htmlUi.highlightCode(); // apply syntax highlighting (highlight.js)
+}
+
+
+// ── Fallback: manual unified-diff builder ────────────────────────────────────
+// Produces a standards-compliant unified diff that diff2html can parse.
+// Uses a simple LCS-based differ (good enough for code review use-cases).
+
+function buildUnifiedDiff(lines1, lines2, full) {
+  const CONTEXT = (full) ? 999999 : 4; //999999; // lines of context around each change
+  
+  // Compute the LCS table
+  const m = lines1.length;
+  const n = lines2.length;
+  const dp = Array.from({ length: m + 1 }, () => new Int32Array(n + 1));
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] =
+        lines1[i - 1] === lines2[j - 1]
+          ? dp[i - 1][j - 1] + 1
+          : Math.max(dp[i - 1][j], dp[i][j - 1]);
+    }
+  }
+
+  // Back-trace to produce edit operations
+  const ops = []; // { type: 'eq'|'del'|'ins', line1, line2, text }
+  let i = m, j = n;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && lines1[i - 1] === lines2[j - 1]) {
+      ops.push({ type: "eq", line1: i, line2: j, text: lines1[i - 1] });
+      i--; j--;
+    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+      ops.push({ type: "ins", line1: i, line2: j, text: lines2[j - 1] });
+      j--;
+    } else {
+      ops.push({ type: "del", line1: i, line2: j - 1, text: lines1[i - 1] });
+      i--;
+    }
+  }
+  ops.reverse();
+
+  // Group ops into hunks (changed regions + CONTEXT lines)
+  const hunks = [];
+  let k = 0;
+  while (k < ops.length) {
+    if (ops[k].type === "eq") { k++; continue; }
+
+    // Found a change — collect the surrounding context
+    const start = Math.max(0, k - CONTEXT);
+    let end = k;
+    while (end < ops.length && (ops[end].type !== "eq" || end - k < CONTEXT)) {
+      end++;
+    }
+    end = Math.min(ops.length, end + CONTEXT);
+
+    hunks.push(ops.slice(start, end));
+    k = end;
+  }
+
+  if (hunks.length === 0) {
+    // Files are identical — return a no-op diff
+    return `--- a/code\n+++ b/code\n`;
+  }
+
+  // Render hunks as unified-diff text
+  const header = `--- a/code\n+++ b/code\n`;
+  const body = hunks.map((hunk) => {
+    const firstOp = hunk[0];
+    const lastOp  = hunk[hunk.length - 1];
+
+    const oldStart = hunk.filter(o => o.type !== "ins")[0]?.line1 ?? 1;
+    const newStart = hunk.filter(o => o.type !== "del")[0]?.line2 ?? 1;
+    const oldCount = hunk.filter(o => o.type !== "ins").length;
+    const newCount = hunk.filter(o => o.type !== "del").length;
+
+    const hunkHeader = `@@ -${oldStart},${oldCount} +${newStart},${newCount} @@\n`;
+    const lines = hunk.map((op) => {
+      if (op.type === "eq")  return ` ${op.text}`;
+      if (op.type === "del") return `-${op.text}`;
+      if (op.type === "ins") return `+${op.text}`;
+    }).join("\n");
+
+    return hunkHeader + lines;
+  }).join("\n");
+
+  return header + body;
+}
 
