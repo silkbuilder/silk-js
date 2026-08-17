@@ -633,30 +633,139 @@ var downloadText = function(content, mimeType, fileName) {
 };
 
 /**
- * Excutes a jQuery ajax post/json call to the provided URL. The handle function received the parameter result, which can be true or false, and the response data.
- * @param {String} serviceURL - The URL to the target service
- * @param {Object} data - The data to be submited
- * @param {Function} handleFunction - The functin which will received the response.
+ * Executes a POST to the provided URL. Uses XHR so that chunked responses
+ * can be reported via progressFunction while the request is still in progress.
+ * Expects the complete response body to be pure, valid JSON.
+ *
+ * @param {String}   serviceURL
+ * @param {Object}   data             - Plain JS object (serialized as form-urlencoded)
+ * @param {Function} handleFunction   - called as handleFunction(success, responseOrError)
+ * @param {*}        context          - `this` value for the callbacks (optional)
+ * @param {Function} progressFunction - called with each new chunk of response text
+ * @param {Number}   timeout          - Timeout in milliseconds (0 = no timeout)
  */
-var postToService = function(serviceURL, data, handleFunction, context) {
-	if (context == undefined) context = this;
-	$.ajax({
-		context: context,
-		url: serviceURL,
-		data: data,
-		type: "POST",
-		dataType: "json",
-		error: function(xhr, ajaxOptions, thrownError) {
-			let errorObject = {};
-			errorObject["xhr"] = xhr;
-			errorObject["ajaxOptions"] = ajaxOptions;
-			errorObject["thrownError"] = thrownError;
-			handleFunction(false, errorObject);
-		},
-		success: function(response) {
-			handleFunction(true, response);
-		}
-	});
+var postToService = function(serviceURL, data = {}, handleFunction = function(){}, context, progressFunction = function(){}, timeout = 0) {
+    if (context === undefined) context = this;
+
+    var xhr = new XMLHttpRequest();
+    var lastIndex = 0;
+
+    xhr.open("POST", serviceURL, true);
+    xhr.timeout = timeout;
+    xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+
+    // data is expected to be a plain JS object
+    var body = (typeof $ !== "undefined" && $.param)
+        ? $.param(data)
+        : new URLSearchParams(data).toString();
+
+    // Progressive chunks
+    xhr.onprogress = function() {
+        var curr = xhr.responseText.length;
+        if (curr > lastIndex) {
+            var chunk = xhr.responseText.substring(lastIndex, curr);
+            lastIndex = curr;
+			if( chunk.indexOf("{")>-1 ) return;
+            progressFunction.call(context, chunk);
+        }
+    };
+
+    xhr.onload = function() {
+
+        if (xhr.status >= 200 && xhr.status < 300) {
+			var text = xhr.responseText;
+            try {
+ 				var lastBrace = text.indexOf('{');
+				var jsonPart = lastBrace >= 0 ? text.substring(lastBrace) : text;
+				var response = JSON.parse(jsonPart);
+                handleFunction.call(context, true, response);
+            } catch (e) {
+                console.error("[postToService] JSON parse failed", {
+                    serviceURL: serviceURL,
+                    status: xhr.status,
+                    statusText: xhr.statusText,
+                    responseText: xhr.responseText,
+                    exception: e,
+                    dataSent: data
+                });
+				console.log(text);
+                handleFunction.call(context, false, {
+                    error: "JSON parse failed",
+                    responseText: xhr.responseText,
+                    exception: e
+                });
+            }
+        } else {
+            console.error("[postToService] HTTP error response", {
+                serviceURL: serviceURL,
+                status: xhr.status,
+                statusText: xhr.statusText,
+                responseText: xhr.responseText,
+                readyState: xhr.readyState,
+                dataSent: data
+            });
+            handleFunction.call(context, false, {
+                xhr: xhr,
+                status: xhr.status,
+                statusText: xhr.statusText,
+                responseText: xhr.responseText
+            });
+        }
+    };
+
+    xhr.onerror = function() {
+        console.error("[postToService] Network error", {
+            serviceURL: serviceURL,
+            readyState: xhr.readyState,
+            status: xhr.status,
+            statusText: xhr.statusText,
+            responseText: xhr.responseText,
+            dataSent: data
+        });
+        handleFunction.call(context, false, {
+            xhr: xhr,
+            error: "Network error"
+        });
+    };
+
+    xhr.ontimeout = function() {
+        console.error("[postToService] Timeout", {
+            serviceURL: serviceURL,
+            timeout: xhr.timeout,
+            readyState: xhr.readyState,
+            dataSent: data
+        });
+        handleFunction.call(context, false, {
+            xhr: xhr,
+            error: "Timeout"
+        });
+    };
+
+    xhr.onabort = function() {
+        console.error("[postToService] Request aborted", {
+            serviceURL: serviceURL,
+            readyState: xhr.readyState,
+            dataSent: data
+        });
+        handleFunction.call(context, false, {
+            xhr: xhr,
+            error: "Aborted"
+        });
+    };
+
+    try {
+        xhr.send(body);
+    } catch (e) {
+        console.error("[postToService] Exception while sending request", {
+            serviceURL: serviceURL,
+            exception: e,
+            dataSent: data
+        });
+        handleFunction.call(context, false, {
+            error: "Send failed",
+            exception: e
+        });
+    }
 };
 
 /**
@@ -746,6 +855,45 @@ function removeTrailingEmptyParagraphs(html) {
 	return result;
 }
 
+/**
+ * Determines the current active Bootstrap 5 responsive breakpoint based on
+ * the viewport width, using CSS media queries via `window.matchMedia`.
+ *
+ * Breakpoints are checked in descending order (xxl -> xs), so the largest
+ * matching breakpoint is returned first.
+ *
+ * @returns {('xxl'|'xl'|'lg'|'md'|'sm'|'xs'|'xxx')} The key of the
+ *   current Bootstrap 5 breakpoint, or `'xxx'` if no breakpoint matches
+ *   (e.g. when run in a non-browser environment without `window`).
+ *
+ * @example
+ * const bp = getBootstrap5Breakpoint();
+ * if (bp === 'xs' || bp === 'sm') {
+ *   // handle mobile layout
+ * }
+ */
+function getBootstrapBreakpoint() {
+	// Bootstrap 5 breakpoint definitions mapped to their media query strings.
+	// Order matters: checked from largest (xxl) to smallest (xs) so the
+	// first match found corresponds to the current viewport width.
+	const breakpoints = {
+		xxl: '(min-width: 1400px)',
+		xl: '(min-width: 1200px)',
+		lg: '(min-width: 992px)',
+		md: '(min-width: 768px)',
+		sm: '(min-width: 576px)',
+		xs: '(max-width: 575.98px)'
+	};
+
+	for (const [key, value] of Object.entries(breakpoints)) {
+		if (window.matchMedia(value).matches) {
+			return key;
+		}
+	}
+
+	// Fallback sentinel value if no breakpoint matched.
+	return 'xxx';
+}
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

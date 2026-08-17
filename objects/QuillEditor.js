@@ -28,6 +28,36 @@
  * @param {Object} [toolbar] - Quill toolsbar array
  * @param {Object} theme - Quill theme: snow or bubble.
  */
+/*
+ * Patch Quill's built-in Image blot so "cid:" src values (used for images
+ * embedded via email, e.g. <img src="cid:image001.png@...">) survive both
+ * clipboard/HTML-to-Delta conversion (setHtml) and insertEmbed() calls.
+ *
+ * By default Quill's Image.sanitize() only allows http, https, and data
+ * URLs — anything else (including cid:) gets replaced with a harmless
+ * placeholder ('//:0'). Since cid: references are a legitimate, well-known
+ * scheme (not remote/executable content), we extend the allow-list rather
+ * than bypassing sanitization entirely.
+ *
+ * Guarded so re-requiring/re-running this file (e.g. multiple QuillEditor
+ * instances on the same page) doesn't re-register the blot redundantly.
+ */
+if (typeof Quill !== 'undefined' && !Quill.__cidImagePatchApplied) {
+	var BaseImageFormat = Quill.import('formats/image');
+
+	class CidImageFormat extends BaseImageFormat {
+		static sanitize(url) {
+			if (typeof url === 'string' && /^cid:/i.test(url)) {
+				return url;
+			}
+			return super.sanitize(url);
+		}
+	}
+
+	Quill.register(CidImageFormat, true);
+	Quill.__cidImagePatchApplied = true;
+}
+
 var QuillEditor = function ($container, htmlContent = '', toolbar = [], theme = 'snow') {
 
 	if ($container === undefined) return;
@@ -366,6 +396,19 @@ var QuillEditor = function ($container, htmlContent = '', toolbar = [], theme = 
 				</button>
 			</div>
 		`;
+
+		// quill-table-better (and Quill's own keyboard module) register
+		// keydown/paste bindings on `document` to make table hotkeys work
+		// page-wide. Those bindings don't check whether the event actually
+		// originated inside the editor, so — since this modal lives outside
+		// quill.root — they can intercept and preventDefault() events meant
+		// for these plain <input> fields, most noticeably Ctrl/Cmd+V paste.
+		// Stopping propagation at the modal boundary keeps such events local
+		// to the inputs so the browser's native paste/typing behavior runs
+		// instead of being swallowed on the way up to document.
+		['keydown', 'keyup', 'keypress', 'paste', 'copy', 'cut'].forEach(evtName => {
+			modal.addEventListener(evtName, (e) => e.stopPropagation());
+		});
 
 		overlay.appendChild(modal);
 		document.body.appendChild(overlay);

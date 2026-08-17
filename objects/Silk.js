@@ -17,6 +17,7 @@
 var Silk = function() {
 
 	this.pageList = [];
+	this.visiblePagesCount = 0;
 	this.focusedPage;
 	this.$screen = $('.screen');
 	this.dpLoader = [];

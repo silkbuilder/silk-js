@@ -210,6 +210,11 @@ var Page = function(id, stage, width, screenSetup, returnPage, tabsNav) {
 
 		this.isSingle = visiblePages.length == 1;
 
+		$(".screen > thead th").attr("colspan", visiblePages.length );
+		$(".screen > tfoot td").attr("colspan", visiblePages.length );
+		
+		silk.visiblePagesCount = visiblePages.length;
+		
 		this.resize();
 
 		/*
